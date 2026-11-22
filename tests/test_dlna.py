@@ -9,6 +9,10 @@ from dlna import dlna  # noqa: E402
 from xml.etree import ElementTree as ET  # noqa: E402
 
 
+class _StopWatch(Exception):
+    """Sentinel raised by a fake transport_state to end an endless loop."""
+
+
 def _device(sink=None, name="Test TV", model="Test Model"):
     device = mock.Mock()
     device.friendly_name = name
@@ -215,6 +219,39 @@ class WatchPlaybackTest(unittest.TestCase):
         side_effect=["PAUSED_PLAYBACK"] + ["STOPPED"] * 6,
     )
     def test_paused_renderer_keeps_the_session_alive(self, state, _sleep):
+        dlna.watch_playback(object(), idle_limit=6)
+        self.assertEqual(state.call_count, 7)
+
+    @mock.patch.object(dlna.time, "sleep")
+    @mock.patch.object(
+        dlna,
+        "transport_state",
+        side_effect=[None] * 12 + [_StopWatch()],
+    )
+    def test_unreadable_device_never_counts_as_stopped(self, state, _sleep):
+        # Without one successful reading, 12 failed polls must not tear the
+        # cast down; the sentinel proves the loop was still running.
+        with self.assertRaises(_StopWatch):
+            dlna.watch_playback(object(), idle_limit=6)
+        self.assertEqual(state.call_count, 13)
+
+    @mock.patch.object(dlna.time, "sleep")
+    @mock.patch.object(
+        dlna,
+        "transport_state",
+        side_effect=[None, None, "STOPPED"] + ["STOPPED"] * 5,
+    )
+    def test_stopped_still_tears_down_after_unreadable_polls(self, state, _sleep):
+        dlna.watch_playback(object(), idle_limit=6)
+        self.assertEqual(state.call_count, 8)
+
+    @mock.patch.object(dlna.time, "sleep")
+    @mock.patch.object(
+        dlna,
+        "transport_state",
+        side_effect=["PLAYING"] + [None] * 6,
+    )
+    def test_none_counts_after_a_successful_reading(self, state, _sleep):
         dlna.watch_playback(object(), idle_limit=6)
         self.assertEqual(state.call_count, 7)
 

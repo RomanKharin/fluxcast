@@ -296,17 +296,29 @@ def watch_playback(
     GetTransportInfo or reports STOPPED.  ``idle_limit`` consecutive idle
     polls are required so one missed poll does not tear down a cast that is
     still running.
+
+    An unreadable device is not a stopped device: until one poll succeeds,
+    a failed GetTransportInfo says nothing about whether playback is still
+    running, so it must not count toward the teardown limit.
     """
     misses = 0
+    have_reading = False
     while True:
         time.sleep(interval)
         state = transport_state(device)
+        if state is not None:
+            have_reading = True
+
         if state in ACTIVE_STATES:
             misses = 0
-        elif state is None or state in STOPPED_STATES:
+        elif state is None:
+            if have_reading:
+                misses += 1
+        elif state in STOPPED_STATES:
             misses += 1
         else:
             misses = 0
+
         if misses >= idle_limit:
             print("\n[FluxCast] Renderer is no longer playing.")
             return
