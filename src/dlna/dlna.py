@@ -156,7 +156,7 @@ def _build_didl_metadata(
     """
     DIDL-Lite XML metadata payload for DLNA AVTransport.
     """
-    from xml.sax.saxutils import escape
+    from xml.sax.saxutils import escape, quoteattr
 
     if protocol_info is None:
         protocol_info = _protocol_info(stream_url, device)
@@ -168,7 +168,7 @@ def _build_didl_metadata(
         <item id="1" parentID="0" restricted="1">
             <upnp:class>object.item.videoItem</upnp:class>
             <dc:title>FluxCast Screen Mirroring</dc:title>
-            <res protocolInfo="{protocol_info}">{escape(stream_url)}</res>
+            <res protocolInfo={quoteattr(protocol_info)}>{escape(stream_url)}</res>
         </item>
     </DIDL-Lite>"""
     return didl

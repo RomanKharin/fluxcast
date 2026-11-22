@@ -6,6 +6,7 @@ from unittest import mock
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from dlna import dlna  # noqa: E402
+from xml.etree import ElementTree as ET  # noqa: E402
 
 
 def _device(sink=None, name="Test TV", model="Test Model"):
@@ -96,6 +97,15 @@ class SinkProtocolInfoTest(unittest.TestCase):
             'protocolInfo="http-get:*:video/mpeg:*"',
             metadata,
         )
+
+    def test_metadata_escapes_dynamic_protocol_info(self):
+        protocol_info = 'http-get:*:video/mpeg:DLNA.ORG_PN=A&B"C'
+        metadata = dlna._build_didl_metadata(
+            "http://host/session/stream.ts", protocol_info=protocol_info
+        )
+        root = ET.fromstring(metadata)
+        res = next(el for el in root.iter() if el.tag.endswith("}res"))
+        self.assertEqual(res.get("protocolInfo"), protocol_info)
 
 
 class StartCastTest(unittest.TestCase):
